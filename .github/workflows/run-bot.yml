@@ -1,0 +1,60 @@
+name: Run TG Auto Deletion Bot
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Run every 15 minutes
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  run-bot:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Create session directory
+        run: mkdir -p .session
+      
+      - name: Restore session
+        uses: actions/cache@v3
+        with:
+          path: .session
+          key: ${{ runner.os }}-telegram-session
+      
+      - name: Set up environment
+        env:
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          TELEGRAM_API: ${{ secrets.TELEGRAM_API }}
+          TELEGRAM_HASH: ${{ secrets.TELEGRAM_HASH }}
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          USER_TIMEOUT: ${{ secrets.USER_TIMEOUT || '900' }}
+          BOT_TIMEOUT: ${{ secrets.BOT_TIMEOUT || '24' }}
+          EXCEPTIONS: ${{ secrets.EXCEPTIONS || '' }}
+        run: |
+          echo "OWNER_ID=$OWNER_ID" > config.env
+          echo "TELEGRAM_API=$TELEGRAM_API" >> config.env
+          echo "TELEGRAM_HASH=$TELEGRAM_HASH" >> config.env
+          echo "BOT_TOKEN=$BOT_TOKEN" >> config.env
+          echo "USER_TIMEOUT=$USER_TIMEOUT" >> config.env
+          echo "BOT_TIMEOUT=$BOT_TIMEOUT" >> config.env
+          echo "EXCEPTIONS=$EXCEPTIONS" >> config.env
+      
+      - name: Run bot
+        run: python startup.py
+      
+      - name: Save session
+        uses: actions/cache/save@v3
+        with:
+          path: .session
+          key: ${{ runner.os }}-telegram-session 
