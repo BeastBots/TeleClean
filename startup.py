@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import sys
 import logging
+import asyncio
 import dotenv
 
 # Configure logging
@@ -10,9 +11,9 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-def main():
+async def async_main():
     """
-    Main function to start the TG Auto Deletion Bot.
+    Async main function to start the TG Auto Deletion Bot.
     """
     logger.info("Starting TG Auto Deletion Bot...")
     
@@ -47,14 +48,29 @@ def main():
     # Import and run the bot
     try:
         from bot.bot import main as bot_main
-        import asyncio
-        asyncio.run(bot_main())
+        await bot_main()
     except ImportError:
         logger.error("Failed to import bot module. Make sure the bot directory exists and contains bot.py")
         sys.exit(1)
     except Exception as e:
         logger.error(f"Error running the bot: {e}")
         sys.exit(1)
+
+def main():
+    """
+    Main function that sets up and runs the asyncio event loop.
+    """
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.run_until_complete(async_main())
+    except KeyboardInterrupt:
+        logger.info("Bot stopped by user")
+    except Exception as e:
+        logger.error(f"Error: {e}")
+        sys.exit(1)
+    finally:
+        loop.close()
 
 if __name__ == "__main__":
     main() 

@@ -14,13 +14,12 @@ logging.basicConfig(
 )
 logger = logging.getLogger(__name__)
 
-# Initialize client
-client = TelegramClient('bot_session', config.api_id, config.api_hash)
-bot = client.start(bot_token=config.bot_token)
-
 # Message tracking
 user_messages = {}
 bot_messages = {}
+
+# The client will be initialized in the main function
+client = None
 
 @events.register(events.NewMessage)
 async def handle_new_message(event):
@@ -66,8 +65,14 @@ async def handle_new_message(event):
 
 async def deletion_task():
     """Periodically check and delete messages that have reached their timeout."""
+    global client
+    
     while True:
         try:
+            if client is None:
+                logger.error("Client not initialized, cannot run deletion task")
+                return
+                
             current_time = datetime.now()
             
             # Check user messages
@@ -108,6 +113,12 @@ async def deletion_task():
 
 async def main():
     """Main function to start the bot."""
+    global client
+    
+    # Initialize client
+    client = TelegramClient('bot_session', config.api_id, config.api_hash)
+    await client.start(bot_token=config.bot_token)
+    
     # Register all handlers
     client.add_event_handler(handle_new_message)
     
@@ -116,13 +127,26 @@ async def main():
     command_handlers.register_handlers()
     
     # Start the deletion task
-    asyncio.create_task(deletion_task())
+    deletion_task_handle = asyncio.create_task(deletion_task())
     
     logger.info("Bot started")
     
-    # Run the client until disconnected
-    await client.run_until_disconnected()
+    try:
+        # Run the client until disconnected
+        await client.run_until_disconnected()
+    finally:
+        # Ensure proper cleanup
+        if not deletion_task_handle.done():
+            deletion_task_handle.cancel()
+            try:
+                await deletion_task_handle
+            except asyncio.CancelledError:
+                pass
+        
+        if client.is_connected():
+            await client.disconnect()
 
 if __name__ == "__main__":
     # Start the main function
-    client.loop.run_until_complete(main()) 
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main()) 
