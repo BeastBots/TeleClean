@@ -41,11 +41,10 @@ class StartAlert:
             # Format message
             message = (
                 f"🟢 <b>TeleClean Bot Started</b>\n\n"
-                f"<b>Time:</b> {current_time}\n\n"
-                f"<b>Configuration:</b>\n"
+                f"<b>Time:</b> {current_time}\n\n"                f"<b>Configuration:</b>\n"
                 f"• User messages: {config['user_messages']} minutes\n"
                 f"• All messages: {config['all_messages']} minutes\n"
-                f"• Exceptions: {len(config['exceptions'])} users\n"
+                f"• Exceptions: {len(config['exceptions'])} (users & channels)\n"
                 f"• Dry run: {'Yes' if config['dry_run'] else 'No'}\n\n"
                 f"<i>Starting message deletion process...</i>"
             )

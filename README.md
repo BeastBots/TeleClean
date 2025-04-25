@@ -2,9 +2,9 @@
 
 A professional-grade Telegram bot that automatically deletes messages in groups and channels based on time thresholds. Built with modern Python and running on GitHub Actions.
 
-![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/BeastBots/TeleClean/teleclean.yml?style=flat-square)
+![GitHub Workflow Status](https://img.shields.io/github/actions/workflow/status/username/teleclean/teleclean.yml?style=flat-square)
 ![Python Version](https://img.shields.io/badge/python-3.10%2B-blue?style=flat-square)
-![License](https://img.shields.io/github/license/BeastBots/TeleClean?style=flat-square)
+![License](https://img.shields.io/github/license/username/teleclean?style=flat-square)
 
 ## 📖 Overview
 
@@ -56,7 +56,7 @@ TeleClean is a Telegram bot that automatically cleans up messages in groups and 
      | `OWNER_ID` | Your Telegram User ID | (required) |
      | `USER_MESSAGES` | Minutes to keep user messages | 60 (1 hour) |
      | `ALL_MESSAGES` | Minutes to keep all messages | 1440 (24 hours) |
-     | `EXCEPTIONS` | Comma-separated list of exempt user IDs | (empty) |
+     | `EXCEPTIONS` | Comma-separated list of exempt user and channel IDs | (empty) |
      | `DRY_RUN` | "True" to simulate deletions without deleting | False |
      | `LOG_LEVEL` | Logging level (INFO, DEBUG, etc.) | INFO |
 
@@ -69,6 +69,30 @@ TeleClean is a Telegram bot that automatically cleans up messages in groups and 
 3. The bot will automatically detect it's been added and start tracking the chat
 4. Messages will be deleted based on your configured thresholds during each run
 
+### Configuring Exceptions
+
+You can exempt specific users and channels from message deletion:
+
+1. **User Exceptions**: Add user IDs as positive integers
+2. **Channel Exceptions**: Add channel IDs as negative integers (usually starting with -100)
+
+Example format for the `EXCEPTIONS` setting:
+
+```text
+12345,-1001234567890,98765
+```
+
+This would exempt:
+
+- User with ID 12345
+- Channel with ID -1001234567890
+- User with ID 98765
+
+To get channel IDs, you can:
+
+1. Forward a message from the channel to @userinfobot
+2. Use @username_to_id_bot to convert channel usernames to IDs
+
 ### Bot Commands
 
 - `/start` - Initialize the bot (in private chat) or verify it's active (in groups)
@@ -78,7 +102,10 @@ TeleClean is a Telegram bot that automatically cleans up messages in groups and 
 To run the bot locally:
 
 1. Clone the repository
-2. Install dependencies: `pip install -r requirements.txt`
+2. Install dependencies: 
+   ```bash
+   pip install -r requirements.txt
+   ```
 3. Set up environment variables:
    ```bash
    export BOT_TOKEN="your_bot_token"
@@ -178,4 +205,4 @@ This bot deletes messages. Always test with `DRY_RUN=True` before using in impor
 
 ---
 
-Made with ❤️ by Beast
+Made with ❤️ by [Your Name]

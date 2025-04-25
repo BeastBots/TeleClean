@@ -34,11 +34,16 @@ class Executor:
         self.bot = bot
         self.db = db
         self.config = config
-        
-        # Extract config values
+          # Extract config values
         self.user_messages_threshold = config.get("user_messages", 60)  # minutes
         self.all_messages_threshold = config.get("all_messages", 1440)  # minutes
-        self.exceptions = set(config.get("exceptions", []))  # user IDs to exempt
+        
+        # Get exceptions - can include both user IDs (positive ints) and channel IDs (negative ints)
+        # User IDs are typically positive integers
+        # Channel IDs are typically negative integers, often starting with -100
+        self.exceptions = set(config.get("exceptions", []))
+        logger.info(f"Loaded {len(self.exceptions)} exceptions (users and channels)")
+        
         self.dry_run = config.get("dry_run", False)
         self.owner_id = config.get("owner_id", 0)
         self.update_interval = config.get("update_interval", 5)  # seconds
@@ -235,8 +240,7 @@ class Executor:
         except TelegramError as e:
             logger.error(f"Error accessing chat {chat_id}: {str(e)}")
             return chat_stats
-    
-    async def _should_delete_message(self, chat_id: int, message_id: int,
+      async def _should_delete_message(self, chat_id: int, message_id: int,
                                    user_cutoff: datetime, all_cutoff: datetime) -> str:
         """Determine if a message should be deleted based on rules.
         
@@ -252,25 +256,40 @@ class Executor:
         # In a real implementation, this would check the actual message
         # from the Telegram API. Here we simulate the logic.
         
+        # NOTE: In a real implementation, you would:
+        # 1. Get the actual message from Telegram API
+        # 2. Check the message.from_user.id against exceptions
+        # 3. Check if the message is from a channel and check channel ID against exceptions
+        # 4. Check message date against thresholds
+        
         # Simplified logic for demo purposes:
         # - Even IDs are "user" messages, odd IDs are "bot" messages
         # - First 10% of IDs are from "exempt" users
         # - Message date is simulated based on message ID
         
         is_bot_message = message_id % 2 == 1
+        
+        # Simulate checking for exempt users or channels
+        # In a real implementation:
+        # 1. For user messages: check if message.from_user.id in self.exceptions
+        # 2. For channel messages: check if message.sender_chat.id in self.exceptions
+        
+        # This is just a simulation - in reality you'd check the actual message source
         is_exempt_user = message_id % 10 == 0
+        is_from_exempt_channel = chat_id < 0 and abs(chat_id) in self.exceptions
+        
+        # Check if message is exempt (from exempt user or channel)
+        if is_exempt_user or is_from_exempt_channel:
+            logger.debug(f"Message {message_id} in chat {chat_id} is exempt from deletion")
+            return "exempt"
         
         # Simulate message date (lower ID = older message)
         # This is just for demonstration
         if message_id < 300:  # Simulate old messages (beyond both thresholds)
-            if is_exempt_user:
-                return "exempt"
             return "delete"
         elif message_id < 600:  # Simulate messages beyond user threshold but not all
             if is_bot_message:
                 return "skip"
-            if is_exempt_user:
-                return "exempt"
             return "delete"
         else:  # Simulate newer messages
             return "skip"
