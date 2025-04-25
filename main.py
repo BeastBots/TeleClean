@@ -41,9 +41,15 @@ async def run_cleaner():
         application = ApplicationBuilder().token(BOT_TOKEN).build()
         await application.initialize()
         bot = application.bot
-        
-        # Initialize database
+          # Initialize database
         db = Database(MONGO_URI)
+        
+        # Validate database connection before proceeding
+        if not await db.validate_connection():
+            logger.error("Failed to validate MongoDB connection")
+            raise ConnectionError("MongoDB connection validation failed")
+            
+        # Setup collections after successful validation
         await db.setup_collections()
         
         # Send start alert

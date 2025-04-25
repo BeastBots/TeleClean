@@ -1,0 +1,15 @@
+async def validate_connection(self) -> bool:
+        """Validate that the MongoDB connection is working.
+        
+        Returns:
+            bool: True if connection is working, False otherwise
+        """
+        try:
+            # Attempt a simple operation to verify connection
+            # The ping command is lightweight and ideal for checking connectivity
+            await self.client.admin.command('ping')
+            logger.info("MongoDB connection validated successfully")
+            return True
+        except Exception as e:
+            logger.error(f"MongoDB connection validation failed: {str(e)}")
+            return False

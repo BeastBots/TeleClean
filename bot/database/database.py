@@ -21,28 +21,60 @@ class Database:
         Args:
             mongo_uri: MongoDB connection URI
         """
-        self.client = AsyncIOMotorClient(mongo_uri)
-        self.db = self.client.TeleClean
+        try:
+            # Connect to MongoDB with a timeout
+            self.client = AsyncIOMotorClient(mongo_uri, serverSelectionTimeoutMS=5000)
+            self.db = self.client.TeleClean
+            
+            # Collections
+            self.botpm = self.db.records.botpm
+            self.chats = self.db.records.chats
+            self.channels = self.db.records.channels
+            self.interaction_history = self.db.history.interaction
+            self.deletion_history = self.db.history.deletion
+            
+            logger.info("MongoDB connection initialized")
+        except Exception as e:
+            logger.error(f"Failed to initialize MongoDB connection: {str(e)}")
+            # Re-raise the exception to allow proper error handling at a higher level
+            raise
+    
+    async def validate_connection(self) -> bool:
+        """Validate that the MongoDB connection is working.
         
-        # Collections
-        self.botpm = self.db.records.botpm
-        self.chats = self.db.records.chats
-        self.channels = self.db.records.channels
-        self.interaction_history = self.db.history.interaction
-        self.deletion_history = self.db.history.deletion
-        
-        logger.info("MongoDB connection initialized")
+        Returns:
+            bool: True if connection is working, False otherwise
+        """
+        try:
+            # Attempt a simple operation to verify connection
+            # The ping command is lightweight and ideal for checking connectivity
+            await self.client.admin.command('ping')
+            logger.info("MongoDB connection validated successfully")
+            return True
+        except Exception as e:
+            logger.error(f"MongoDB connection validation failed: {str(e)}")
+            return False
     
     async def setup_collections(self):
         """Set up required collections and indexes."""
-        # Create indexes for faster lookups
-        await self.botpm.create_index("_id", unique=True)
-        await self.chats.create_index("_id", unique=True)
-        await self.channels.create_index("_id", unique=True)
-        await self.interaction_history.create_index("date")
-        await self.deletion_history.create_index("date")
-        
-        logger.info("Database collections and indexes set up")
+        try:
+            # No need to create indexes on _id fields as they're already indexed by default
+            
+            # Create secondary indexes for date-based operations
+            await self.interaction_history.create_index("date")
+            await self.deletion_history.create_index("date")
+            
+            # Create other useful indexes
+            await self.botpm.create_index("active")
+            await self.chats.create_index("active")
+            await self.channels.create_index("active")
+            
+            logger.info("Database collections and indexes set up")
+        except Exception as e:
+            logger.error(f"Error setting up database collections and indexes: {str(e)}")
+            # Continue execution even if index creation fails
+            # This allows the bot to function with possibly degraded performance
+            # rather than failing completely
     
     async def add_chat(self, chat_id: int, chat_type: str = "group") -> bool:
         """Add a chat to the database.
@@ -97,8 +129,7 @@ class Database:
                 logger.error(f"Invalid chat type: {chat_type}")
                 return False
             
-            # Mark the chat as inactive instead of deleting
-            # This preserves history but indicates the bot is no longer in the chat
+            # Mark the chat as inactive
             await collection.update_one(
                 {"_id": chat_id},
                 {"$set": {"active": False}}
@@ -107,7 +138,7 @@ class Database:
             # Log the interaction
             await self.interaction_history.insert_one({
                 "id": chat_id,
-                "action": "removed",
+                "action": "left",
                 "type": chat_type,
                 "date": asyncio.get_event_loop().time()
             })
@@ -119,122 +150,58 @@ class Database:
             return False
     
     async def get_all_active_chats(self) -> List[Dict[str, Any]]:
-        """Get all active chats where the bot is present.
+        """Get all active chats.
         
         Returns:
-            list: List of chat documents
+            list: List of chat dictionaries
         """
         try:
-            # Gather all active chats from different collections
-            private_chats = await self.botpm.find({"active": True}).to_list(None)
+            # Get chats from both collections
             group_chats = await self.chats.find({"active": True}).to_list(None)
             channel_chats = await self.channels.find({"active": True}).to_list(None)
+            all_chats = group_chats + channel_chats
             
-            # Add chat type information to each document
-            for chat in private_chats:
-                chat["type"] = "private"
-            for chat in group_chats:
-                chat["type"] = "group"
-            for chat in channel_chats:
-                chat["type"] = "channel"
-            
-            all_chats = private_chats + group_chats + channel_chats
-            logger.info(f"Retrieved {len(all_chats)} active chats from database")
+            logger.info(f"Retrieved {len(all_chats)} active chats")
             return all_chats
         except Exception as e:
-            logger.error(f"Failed to retrieve active chats: {str(e)}")
+            logger.error(f"Failed to get active chats: {str(e)}")
             return []
     
     async def log_deletion(self, message_id: int, chat_id: int, 
-                          result: str, error: Optional[str] = None) -> bool:
-        """Log a message deletion attempt.
+                          deleted: str, reason: str = None) -> bool:
+        """Log a deletion attempt.
         
         Args:
             message_id: Telegram message ID
             chat_id: Telegram chat ID
-            result: 'yes' if deleted, 'no' if skipped, 'error' if failed
-            error: Error message if result is 'error'
+            deleted: "yes", "no", "dryrun", or "error"
+            reason: Reason for not deleting or error
             
         Returns:
-            bool: True if logged successfully, False otherwise
+            bool: True if successful, False otherwise
         """
         try:
-            document = {
+            # Create log entry
+            log_entry = {
                 "message_id": message_id,
                 "chat_id": chat_id,
-                "result": result,
+                "deleted": deleted,
                 "date": asyncio.get_event_loop().time()
             }
             
-            if error:
-                document["error"] = error
-                
-            await self.deletion_history.insert_one(document)
+            # Add reason if provided
+            if reason:
+                log_entry["reason"] = reason
+            
+            # Insert log entry
+            await self.deletion_history.insert_one(log_entry)
             return True
         except Exception as e:
             logger.error(f"Failed to log deletion: {str(e)}")
             return False
     
-    async def get_deletion_stats(self, 
-                                hours: int = 24) -> Dict[str, Union[int, float]]:
-        """Get deletion statistics for a specified time period.
-        
-        Args:
-            hours: Number of hours to look back
-            
-        Returns:
-            dict: Statistics about message deletions
-        """
-        try:
-            # Calculate the timestamp for the cutoff
-            current_time = asyncio.get_event_loop().time()
-            cutoff_time = current_time - (hours * 3600)
-            
-            # Count the total deletions
-            total_count = await self.deletion_history.count_documents({
-                "date": {"$gte": cutoff_time}
-            })
-            
-            # Count successful deletions
-            success_count = await self.deletion_history.count_documents({
-                "date": {"$gte": cutoff_time},
-                "result": "yes"
-            })
-            
-            # Count errors
-            error_count = await self.deletion_history.count_documents({
-                "date": {"$gte": cutoff_time},
-                "result": "error"
-            })
-            
-            # Count skipped
-            skipped_count = await self.deletion_history.count_documents({
-                "date": {"$gte": cutoff_time},
-                "result": "no"
-            })
-            
-            # Calculate success rate
-            success_rate = (success_count / total_count) * 100 if total_count > 0 else 0
-            
-            return {
-                "total": total_count,
-                "success": success_count,
-                "error": error_count,
-                "skipped": skipped_count,
-                "success_rate": success_rate
-            }
-        except Exception as e:
-            logger.error(f"Failed to get deletion stats: {str(e)}")
-            return {
-                "total": 0,
-                "success": 0,
-                "error": 0,
-                "skipped": 0,
-                "success_rate": 0
-            }
-    
     def _get_collection_for_chat_type(self, chat_type: str):
-        """Helper method to get the appropriate collection for a chat type.
+        """Get the appropriate collection for the chat type.
         
         Args:
             chat_type: Type of chat (group, supergroup, channel, private)
@@ -242,16 +209,17 @@ class Database:
         Returns:
             Collection object or None if invalid type
         """
-        if chat_type in ["private", "bot"]:
-            return self.botpm
-        elif chat_type in ["group", "supergroup"]:
+        if chat_type in ["group", "supergroup"]:
             return self.chats
         elif chat_type == "channel":
             return self.channels
+        elif chat_type == "private":
+            return self.botpm
         else:
             return None
     
     async def close(self):
         """Close the database connection."""
-        self.client.close()
-        logger.info("MongoDB connection closed")
+        if hasattr(self, 'client') and self.client is not None:
+            self.client.close()
+            logger.info("MongoDB connection closed")

@@ -29,6 +29,12 @@ def verify_env():
         logger.error(f"Missing required environment variables: {', '.join(missing_vars)}")
         return False
     
+    # Verify MongoDB URI format
+    mongo_uri = os.environ.get("MONGO_URI", "")
+    if mongo_uri and not mongo_uri.startswith(("mongodb://", "mongodb+srv://")):
+        logger.error("Invalid MONGO_URI format. Must start with 'mongodb://' or 'mongodb+srv://'")
+        return False
+    
     return True
 
 
@@ -45,14 +51,17 @@ def main():
     # Verify environment
     if not verify_env():
         sys.exit(1)
-    
-    # Import and run main process
+      # Import and run main process
     try:
         from main import main as run_main
         run_main()
     except ImportError as e:
         logger.error(f"Failed to import main module: {str(e)}")
         sys.exit(1)
+    except ConnectionError as e:
+        logger.error(f"Database connection error: {str(e)}")
+        # MongoDB connection issues exit with specific error code
+        sys.exit(2)
     except Exception as e:
         logger.error(f"Error running main process: {str(e)}")
         sys.exit(1)
