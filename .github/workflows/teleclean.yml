@@ -1,0 +1,53 @@
+name: TeleClean Bot
+
+on:
+  schedule:
+    # Run every 15 minutes
+    - cron: '*/15 * * * *'
+  
+  # Allow manual triggering
+  workflow_dispatch:
+
+jobs:
+  run-telecelan:
+    name: Run TeleClean Bot
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+      
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+      
+      - name: Create logs directory
+        run: mkdir -p logs
+      
+      - name: Run TeleClean Bot
+        env:
+          BOT_TOKEN: ${{ secrets.BOT_TOKEN }}
+          MONGO_URI: ${{ secrets.MONGO_URI }}
+          OWNER_ID: ${{ secrets.OWNER_ID }}
+          USER_MESSAGES: ${{ secrets.USER_MESSAGES || '60' }}
+          ALL_MESSAGES: ${{ secrets.ALL_MESSAGES || '1440' }}
+          EXCEPTIONS: ${{ secrets.EXCEPTIONS || '' }}
+          DRY_RUN: ${{ secrets.DRY_RUN || 'False' }}
+          LOG_LEVEL: ${{ secrets.LOG_LEVEL || 'INFO' }}
+        run: |
+          python start.py
+      
+      - name: Upload logs
+        if: always()
+        uses: actions/upload-artifact@v3
+        with:
+          name: teleclean-logs
+          path: logs/
+          retention-days: 3
