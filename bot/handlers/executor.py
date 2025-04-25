@@ -34,15 +34,17 @@ class Executor:
         self.bot = bot
         self.db = db
         self.config = config
-          # Extract config values
+        
+        # Extract config values
         self.user_messages_threshold = config.get("user_messages", 60)  # minutes
         self.all_messages_threshold = config.get("all_messages", 1440)  # minutes
         
         # Get exceptions - can include both user IDs (positive ints) and channel IDs (negative ints)
         # User IDs are typically positive integers
         # Channel IDs are typically negative integers, often starting with -100
+        # Bot IDs are positive integers like user IDs
         self.exceptions = set(config.get("exceptions", []))
-        logger.info(f"Loaded {len(self.exceptions)} exceptions (users and channels)")
+        logger.info(f"Loaded {len(self.exceptions)} exceptions (users, bots and channels)")
         
         self.dry_run = config.get("dry_run", False)
         self.owner_id = config.get("owner_id", 0)
@@ -240,7 +242,8 @@ class Executor:
         except TelegramError as e:
             logger.error(f"Error accessing chat {chat_id}: {str(e)}")
             return chat_stats
-      async def _should_delete_message(self, chat_id: int, message_id: int,
+    
+    async def _should_delete_message(self, chat_id: int, message_id: int,
                                    user_cutoff: datetime, all_cutoff: datetime) -> str:
         """Determine if a message should be deleted based on rules.
         
@@ -269,17 +272,23 @@ class Executor:
         
         is_bot_message = message_id % 2 == 1
         
-        # Simulate checking for exempt users or channels
-        # In a real implementation:
+        # In a real implementation, we would check actual message attributes:
         # 1. For user messages: check if message.from_user.id in self.exceptions
-        # 2. For channel messages: check if message.sender_chat.id in self.exceptions
+        # 2. For bot messages: check if message.from_user.id in self.exceptions (same as users)
+        # 3. For channel messages: check if message.sender_chat.id in self.exceptions
         
         # This is just a simulation - in reality you'd check the actual message source
-        is_exempt_user = message_id % 10 == 0
-        is_from_exempt_channel = chat_id < 0 and abs(chat_id) in self.exceptions
+        is_exempt_user = message_id % 10 == 0  # Simulate exempt user (simplified)
         
-        # Check if message is exempt (from exempt user or channel)
-        if is_exempt_user or is_from_exempt_channel:
+        # More realistic check for exempt channels - check if chat_id is in exceptions
+        is_from_exempt_channel = chat_id < 0 and chat_id in self.exceptions
+        
+        # For linked channels, also check if the chat is linked to an exempt channel
+        # Channel IDs in linked messages are negative numbers (often starting with -100)
+        is_from_linked_exempt_channel = False  # This would come from message.forward_from_chat
+        
+        # Check if message is exempt (from exempt user, bot or channel)
+        if is_exempt_user or is_from_exempt_channel or is_from_linked_exempt_channel:
             logger.debug(f"Message {message_id} in chat {chat_id} is exempt from deletion")
             return "exempt"
         

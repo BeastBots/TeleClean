@@ -106,8 +106,8 @@ class UpdateAlert:
                     )
                     self.message_id = sent_msg.message_id
                     return True
-                except:
-                    pass
+                except Exception as nested_e:
+                    logger.error(f"Failed to send new update message: {str(nested_e)}")
             return False
     
     def _create_progress_bar(self, percentage: float, width: int = 20) -> str:

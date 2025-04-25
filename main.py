@@ -10,7 +10,7 @@ import time
 from loguru import logger
 import sys
 
-from config import BOT_TOKEN, MONGO_URI, OWNER_ID
+from config import BOT_TOKEN, MONGO_URI, OWNER_ID, EXCEPTIONS
 from bot.database.database import Database
 from bot.handlers.config_handler import ConfigHandler
 from bot.handlers.executor import Executor

@@ -15,7 +15,7 @@ jobs:
     
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
       
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -38,6 +38,9 @@ jobs:
           OWNER_ID: ${{ secrets.OWNER_ID }}
           USER_MESSAGES: ${{ secrets.USER_MESSAGES || '60' }}
           ALL_MESSAGES: ${{ secrets.ALL_MESSAGES || '1440' }}
+          # EXCEPTIONS should be a comma-separated list without spaces
+          # Format: "12345,-1001234567890,98765,5273782385" (users, channels, bots)
+          # Include both user IDs (positive) and channel IDs (negative, starting with -100)
           EXCEPTIONS: ${{ secrets.EXCEPTIONS || '' }}
           DRY_RUN: ${{ secrets.DRY_RUN || 'False' }}
           LOG_LEVEL: ${{ secrets.LOG_LEVEL || 'INFO' }}
@@ -46,7 +49,7 @@ jobs:
       
       - name: Upload logs
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: teleclean-logs
           path: logs/

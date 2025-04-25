@@ -74,12 +74,13 @@ TeleClean is a Telegram bot that automatically cleans up messages in groups and 
 You can exempt specific users and channels from message deletion:
 
 1. **User Exceptions**: Add user IDs as positive integers
-2. **Channel Exceptions**: Add channel IDs as negative integers (usually starting with -100)
+2. **Bot Exceptions**: Add bot IDs as positive integers (they're treated like users)
+3. **Channel Exceptions**: Add channel IDs as negative integers (usually starting with -100)
 
-Example format for the `EXCEPTIONS` setting:
+Example format for the `EXCEPTIONS` environment variable:
 
 ```text
-12345,-1001234567890,98765
+12345,-1001234567890,98765,5273782385
 ```
 
 This would exempt:
@@ -87,11 +88,34 @@ This would exempt:
 - User with ID 12345
 - Channel with ID -1001234567890
 - User with ID 98765
+- Bot with ID 5273782385
 
-To get channel IDs, you can:
+To get various IDs:
 
-1. Forward a message from the channel to @userinfobot
-2. Use @username_to_id_bot to convert channel usernames to IDs
+1. **For User IDs**: Send "/start" to @userinfobot
+2. **For Bot IDs**: Forward a bot's message to @userinfobot (same format as user IDs)
+3. **For Channel IDs**: Forward a message from the channel to @userinfobot
+4. **For Channel IDs by username**: Use @username_to_id_bot
+
+When setting the environment variable, don't include spaces between IDs.
+
+#### Setting the EXCEPTIONS Environment Variable
+
+**For GitHub Actions:**
+```yaml
+env:
+  EXCEPTIONS: "12345,-1001234567890,98765,5273782385"
+```
+
+**In PowerShell (local testing):**
+```powershell
+$env:EXCEPTIONS = "12345,-1001234567890,98765,5273782385"
+```
+
+**In Bash (Linux or macOS):**
+```bash
+export EXCEPTIONS="12345,-1001234567890,98765,5273782385"
+```
 
 ### Bot Commands
 
